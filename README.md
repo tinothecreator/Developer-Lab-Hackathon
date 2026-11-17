@@ -1,116 +1,34 @@
-# Surplus Food Matcher
+# Charity Eats
 
-A simple Next.js + Supabase MVP for matching surplus food with verified charities and food banks.
+A mobile-first hackathon demo connecting donors to fictional South African NGO grocery needs. Join Ubuntu Table’s fixed basket at **R400 / R550**, contribute **R50 (demo)** and then **R100 (demo)**, and create exactly one funded order. In NGO view, upload a non-sensitive grocery photo and note to confirm simulated receipt. Both donor contributions then show the same saved evidence.
 
-## Product goal
+Next.js App Router · strict TypeScript · Tailwind CSS · Supabase Postgres + Storage · Vercel.
 
-Donors list surplus food. Verified charities claim open items, then mark them collected when they pick them up. The app records the agreed price on collection and keeps the flow lightweight, secure, and auditable.
+## Run locally
 
-The MVP is deliberately small:
+1. Run `npm install`.
+2. Privately populate `.env.local` with the two names in `.env.example`: your public Supabase URL and anon key. Never commit the file. No service-role key is required.
+3. Apply the migration and seed using [backend setup](supabase/README.md).
+4. Run `npm run dev` and open http://localhost:3000.
 
-- one buyer role: verified charity/food bank
-- one listing flow: list -> claim -> collect
-- no payment gateway
-- price stored as integer minor units only
-- offline settlement on collection
+Before pushing, run `npm run lint`, `npm run typecheck`, and `npm run build`. Money tests: `npm exec tsx -- --test src/lib/money.test.ts`.
 
-## Core flow
+## Demo routes
 
-1. Register
-2. Admin verifies the organization
-3. Browse open listings
-4. Claim a listing
-5. Mark it collected after pickup
+- `/` → `/ngos/00000000-0000-4000-8000-000000000001` → `/basket` → `/checkout?basketId=00000000-0000-4000-8000-000000000301&amountCents=5000`
+- Successful checkout opens `/confirmation/<contributionId>` and links to `/donations/<contributionId>`.
+- Toggle NGO → `/ngo` → `/ngo/orders/<orderId>` to upload and confirm receipt.
 
-A listing can be either:
+Use the [three-minute script](docs/qa/demo-script.md) and [eight acceptance checks](docs/qa/m1-checklist.md). Deploy using the [Vercel click-by-click guide](docs/deployment.md). One-command developer reset: `psql -v ON_ERROR_STOP=1 -f supabase/seed.sql` with private PostgreSQL connection settings; alternatively rerun the seed in SQL Editor.
 
-- FREE: donation
-- DISCOUNTED: low price set by the donor/seller
+## Boundaries and owners
 
-## The user experience
+Owner 1: scaffold, shell, shared UI, integration and Vercel. Owner 2: donor entry/profile/basket/tracking. Owner 3: NGO workspace/receipt form. Owner 4: shared types, fixtures, services, SQL, Storage and reset. Owner 5: checkout/confirmation, QA and rehearsal. Exact paths are in [AGENTS.md](AGENTS.md); the frozen contract and scope are in [PLAN.md](PLAN.md).
 
-### Buyer side
+Pages and components call `src/lib/services`, never Supabase directly. Shared domain types live only in `src/lib/types.ts`. Funding is atomic and idempotent through `contribute_to_basket`; receipt changes use the restricted `confirm_delivery` RPC. Only persisted success opens a success screen.
 
-- Sign up or log in
-- See a pending-verification notice until an admin approves the organization
-- View open listings only
-- Sort listings by soonest expiry
-- Open a listing and claim it
-- Review claims and mark collected when pickup is complete
+## What is mocked
 
-### Seller side
+Payments, notifications, supplier fulfilment, verification and delivery are visibly labelled **demo**. Names, registration identifiers, prices and grocery needs are fictional. No real payment credentials or notifications are used. There is no authentication: the persisted Donor/NGO selector changes the view, not permissions. Database reads are public and the proof bucket is public for non-sensitive images only. These policies are intended for a disposable demo, not production.
 
-- Add listing items with donor name, item details, quantity, storage notes, pickup location, and expiry
-- Set a price in minor units; `0` means free
-- Keep status values in sync: `open`, `claimed`, `collected`, `expired`
-
-## Data model
-
-The app keeps to these core tables:
-
-- `organizations(id, user_id, name, reg_number, contact_email, verified, created_at)`
-- `listings(id, donor_name, item, quantity, storage_notes, expires_at, pickup_location, price_minor int default 0, currency text, status['open','claimed','collected','expired'], created_at)`
-- `claims(id, listing_id, organization_id, agreed_price_minor, status, claimed_at, collected_at)`
-
-Rules:
-
-- `price_minor = 0` means free donation.
-- `price_minor > 0` means discounted sale.
-- The claiming organization never sets the price; the server copies it from the listing at claim time.
-- Claims are atomic and must prevent duplicate claiming of the same open listing.
-
-## Security and constraints
-
-- Use Next.js App Router with TypeScript and Supabase.
-- Enable Row Level Security on every table and default to deny.
-- Charities can only read open listings and their own claims.
-- Charities can claim only when `verified = true`.
-- Only admins can set `verified`.
-- Authenticate every route and server action.
-- Validate input server-side with Zod and reject unknown fields.
-- Store money as integers in minor units; never use floats.
-- Keep secrets in environment variables only.
-- Add security headers and require HTTPS.
-
-## Tech stack
-
-- Next.js App Router
-- TypeScript
-- Supabase Auth, Postgres, and RLS
-- Tailwind CSS
-- Vercel deployment
-
-## Local setup
-
-This repository currently contains the product specification and implementation target, not the app itself.
-
-1. Create the Next.js app in the repository root.
-2. Configure Supabase for Auth and Postgres.
-3. Add the required environment variables in `.env.local`.
-4. Run the app locally with `npm install` and `npm run dev`.
-5. Verify the full flow end to end in a browser.
-
-Example environment variables:
-
-```bash
-NEXT_PUBLIC_SUPABASE_URL=your-project-url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
-SUPABASE_SERVICE_ROLE_KEY=server-only-key
-```
-
-Do not commit `.env` files or expose service-role credentials in client code.
-
-## Definition of done
-
-The MVP is complete when the full flow works end to end:
-
-- registration and admin verification
-- open listings board with pricing and expiry sorting
-- claim flow that is safe against double-claims
-- claim view and collection status update
-- server-side validation and ownership checks
-- price copied from the server, never from the client
-
-## Notes
-
-This MVP intentionally does not include a payment gateway, complex donor onboarding, or marketplace bidding. The goal is a secure, minimal product that proves the matching flow works reliably.
+New needs, basket creation, contribution-history lists, need fulfilment, larger-photo views and concurrency stress testing remain Later. No real supplier, payment or verification integrations are implemented. M1 completion does not claim a Vercel deployment until its connection and URL are verified.

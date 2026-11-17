@@ -1,4 +1,27 @@
 @import "tailwindcss";
 
-body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
+:root { --paper: #f8f7f1; --ink: #202e28; --muted: #59675d; --green: #2d6145; --green-dark: #204a33; --border: #e0e3d8; --accent: #c45b38; }
+@theme inline { --color-background: var(--paper); --color-foreground: var(--ink); }
 * { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: Arial, Helvetica, sans-serif; -webkit-font-smoothing: antialiased; }
+html { overflow-wrap: anywhere; }
+img, svg, video { max-width: 100%; }
+button, select, input, textarea { font: inherit; }
+button, a, input, select, textarea { touch-action: manipulation; }
+button:not(:disabled), select:not(:disabled) { cursor: pointer; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+main:focus { outline: none; }
+input:not([type="file"]), select, textarea { display: block; width: 100%; min-width: 0; min-height: 44px; border: 1px solid #9ca99f; border-radius: 10px; padding: 12px; background: white; color: var(--ink); }
+input[type="file"] { width: 100%; min-height: 44px; font-size: 14px; }
+input[type="file"]::file-selector-button { min-height: 44px; margin-right: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: white; }
+textarea { resize: vertical; }
+.eyebrow { color: var(--accent); font-size: 11px; line-height: 1.6; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
+.page-title { font-size: clamp(2rem, 6vw, 3rem); line-height: 1.1; font-weight: 800; letter-spacing: -.04em; }
+.text-link { display: inline-flex; min-height: 44px; align-items: center; font-size: 14px; font-weight: 700; color: var(--green); text-decoration: underline; text-underline-offset: 4px; }
+.funding-progress { display: block; width: 100%; height: 9px; overflow: hidden; border: 0; border-radius: 99px; background: #e9ede5; accent-color: var(--green); }
+.funding-progress::-webkit-progress-bar { background: #e9ede5; border-radius: 99px; }
+.funding-progress::-webkit-progress-value { background: var(--green); border-radius: 99px; }
+.funding-progress::-moz-progress-bar { background: var(--green); border-radius: 99px; }
+.skip-link { position: absolute; top: -100px; left: 12px; z-index: 50; padding: 12px; border-radius: 8px; background: white; }
+.skip-link:focus { top: 12px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
