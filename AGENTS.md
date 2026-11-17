@@ -68,3 +68,13 @@ Proposed boundaries become fixed at M0. Owner 1 creates the initial scaffold, th
 ## When blocked or unsure
 
 State the assumption in the PR or commit message and continue with the safest contract-compatible work in your assigned area; do not stall. Tell the responsible owner what is blocked and the smallest interface/help needed. Use typed fixtures while waiting for backend wiring, then replace them before marking the task done. Do not guess credentials, bypass policy errors, invent successful persistence or edit someone else's files without asking. Escalate an unresolved golden-path blocker to owner 1 so the team can reassign work or apply PLAN.md's cuts.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
