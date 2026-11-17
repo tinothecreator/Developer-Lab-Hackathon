@@ -1,4 +1,4 @@
-import type { Order, Result } from "@/lib/types";
+import type { BasketView, Order, Result } from "@/lib/types";
 import { receiptNoteSchema } from "@/lib/validation";
 import { fail, getSupabaseClient, mapServiceError, succeed, unavailable } from "@/lib/services/shared";
 import { getBasketForNgo } from "@/lib/services/baskets";
@@ -15,7 +15,7 @@ export async function getFundedOrdersForNgo(ngoId: string): Promise<Result<Order
   return succeed(orders);
 }
 
-export async function getOrderView(orderId: string): Promise<Result<{ order: Order; basket_view: Awaited<ReturnType<typeof getBasketForNgo>> extends Result<infer T> ? T : never }>> {
+export async function getOrderView(orderId: string): Promise<Result<{ order: Order; basket_view: BasketView }>> {
   const supabase = getSupabaseClient();
   if (!supabase) return unavailable();
   const { data: order, error } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
