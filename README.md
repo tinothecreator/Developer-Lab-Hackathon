@@ -1,89 +1,116 @@
-# Charity Eats
+# Surplus Food Matcher
 
-**Fund the groceries a South African community kitchen needs, and see proof they arrived.**
+A simple Next.js + Supabase MVP for matching surplus food with verified charities and food banks.
 
-Charity Eats connects donors with NGO-posted grocery needs. Donors choose specific items from a supplier's bulk catalogue, contribute toward a shared basket, and track the order through to a receipt photo and note from the NGO. The intended fulfilment model sends groceries directly from the supplier to the NGO.
+## Product goal
 
-## Why this matters
+Donors list surplus food. Verified charities claim open items, then mark them collected when they pick them up. The app records the agreed price on collection and keeps the flow lightweight, secure, and auditable.
 
-Food insecurity affects around **17.8 million people in South Africa** (estimate supplied in the hackathon brief; verify its source and date before public publication). NGOs and community kitchens often lack particular essentials, while donors may not know what to give or whether it arrived.
+The MVP is deliberately small:
 
-## What makes Charity Eats different
+- one buyer role: verified charity/food bank
+- one listing flow: list -> claim -> collect
+- no payment gateway
+- price stored as integer minor units only
+- offline settlement on collection
 
-- **NGO-posted needs:** kitchens list what they are short of this week, such as maize meal, cooking oil, or baby formula. Donors fund those items instead of guessing.
-- **Proof of delivery:** the NGO uploads a photo and short receipt note; donors can view both against their contribution.
-- **Pooled donations:** several donors can contribute small amounts, such as **R50**, toward the same bulk basket until it is fully funded.
+## Core flow
 
-## Demo scope
+1. Register
+2. Admin verifies the organization
+3. Browse open listings
+4. Claim a listing
+5. Mark it collected after pickup
 
-This is a mobile-first, three-hour hackathon MVP for a five-person team. It demonstrates the donation and receipt loop; it does not transact money or arrange real deliveries.
+A listing can be either:
 
-| Available in the MVP | Demo behaviour |
-| --- | --- |
-| Browse NGOs and current needs | Five fictional South African NGO profiles with weekly grocery needs |
-| Build a basket | Select requested catalogue items for one NGO and join its shared funding basket |
-| Pooled funding | Choose an amount up to the remaining balance and see the funding progress update |
-| Mock checkout and confirmation | A clearly labelled Pay button records a simulated paid contribution |
-| Delivery tracking | See funding, order status, and the NGO's receipt photo and note |
-| NGO workspace | Post needs, review funded orders, and confirm receipt with a photo |
-| Demo role toggle | Switch between Donor and NGO views without authentication |
+- FREE: donation
+- DISCOUNTED: low price set by the donor/seller
 
-### Explicitly mocked
+## The user experience
 
-- **Payments:** “Pay (demo)” marks a contribution as paid. No gateway, card details, or money movement.
-- **Notifications:** on-screen messages replace email and WhatsApp.
-- **Supplier integration:** a static fake catalogue replaces supplier APIs. No order is sent to a supplier and no transport is booked.
-- **NGO verification:** a registration-number field is stored for demonstration only. No verification checks occur; profiles display “Verification mocked”.
+### Buyer side
 
-User accounts, tax certificates, multi-supplier routing, real payments, and an admin dashboard are out of scope.
+- Sign up or log in
+- See a pending-verification notice until an admin approves the organization
+- View open listings only
+- Sort listings by soonest expiry
+- Open a listing and claim it
+- Review claims and mark collected when pickup is complete
 
-## Fixed stack
+### Seller side
 
-- Next.js **App Router** with TypeScript
-- Tailwind CSS; shadcn/ui is optional
-- Supabase **Postgres** for application data and **Storage** for delivery photos
+- Add listing items with donor name, item details, quantity, storage notes, pickup location, and expiry
+- Set a price in minor units; `0` means free
+- Keep status values in sync: `open`, `claimed`, `collected`, `expired`
+
+## Data model
+
+The app keeps to these core tables:
+
+- `organizations(id, user_id, name, reg_number, contact_email, verified, created_at)`
+- `listings(id, donor_name, item, quantity, storage_notes, expires_at, pickup_location, price_minor int default 0, currency text, status['open','claimed','collected','expired'], created_at)`
+- `claims(id, listing_id, organization_id, agreed_price_minor, status, claimed_at, collected_at)`
+
+Rules:
+
+- `price_minor = 0` means free donation.
+- `price_minor > 0` means discounted sale.
+- The claiming organization never sets the price; the server copies it from the listing at claim time.
+- Claims are atomic and must prevent duplicate claiming of the same open listing.
+
+## Security and constraints
+
+- Use Next.js App Router with TypeScript and Supabase.
+- Enable Row Level Security on every table and default to deny.
+- Charities can only read open listings and their own claims.
+- Charities can claim only when `verified = true`.
+- Only admins can set `verified`.
+- Authenticate every route and server action.
+- Validate input server-side with Zod and reject unknown fields.
+- Store money as integers in minor units; never use floats.
+- Keep secrets in environment variables only.
+- Add security headers and require HTTPS.
+
+## Tech stack
+
+- Next.js App Router
+- TypeScript
+- Supabase Auth, Postgres, and RLS
+- Tailwind CSS
 - Vercel deployment
-- Mobile-first layouts
 
-## Planned local setup
+## Local setup
 
-**This repository currently contains documentation only.** The commands and variables below are the implementation target, not a claim that the app or scripts already exist.
+This repository currently contains the product specification and implementation target, not the app itself.
 
-1. Create the Next.js App Router application in this repo with TypeScript and Tailwind CSS.
-2. Create a disposable Supabase demo project, apply the schema and seed fixtures described in [SPEC.md](SPEC.md), and create the `delivery-proofs` Storage bucket.
-3. Configure local environment variables in `.env.local`:
+1. Create the Next.js app in the repository root.
+2. Configure Supabase for Auth and Postgres.
+3. Add the required environment variables in `.env.local`.
+4. Run the app locally with `npm install` and `npm run dev`.
+5. Verify the full flow end to end in a browser.
 
-   ```dotenv
-   NEXT_PUBLIC_SUPABASE_URL=<supabase-project-url>
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=<supabase-public-anon-key>
-   ```
+Example environment variables:
 
-4. Once the application and package scripts exist, run `npm install` and `npm run dev`, then open `http://localhost:3000`.
-5. Deploy to Vercel with the same environment variables and verify the complete donation-to-proof flow on the deployed URL.
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=server-only-key
+```
 
-Keep secrets out of the repo. Public Supabase keys require explicit demo access policies; never expose a service-role key in browser code. Use fictional records and non-sensitive delivery photos in this unauthenticated demo.
+Do not commit `.env` files or expose service-role credentials in client code.
 
-## Three-minute demo
+## Definition of done
 
-1. Open Donor view and choose **Ubuntu Table Community Kitchen** in Soweto.
-2. Read its weekly need for maize meal and cooking oil, then add both to a basket worth **R550**.
-3. Show the existing **R400** pooled funding. Contribute **R50** through mock checkout; confirmation shows **R450 / R550** and “Awaiting funding”.
-4. Simulate another contribution of **R100** to fully fund the basket. Show the resulting order as “Awaiting delivery”.
-5. Switch to NGO view, select Ubuntu Table, and confirm receipt with a photo and a short note.
-6. Switch back to Donor view and open the first contribution's tracking screen to show “Delivered”, the photo, and the note.
+The MVP is complete when the full flow works end to end:
 
-## Team plan: five people, three hours
+- registration and admin verification
+- open listings board with pricing and expiry sorting
+- claim flow that is safe against double-claims
+- claim view and collection status update
+- server-side validation and ownership checks
+- price copied from the server, never from the client
 
-| Owner | Primary responsibility |
-| --- | --- |
-| 1 | App shell, role toggle, mobile layout, integration, Vercel deployment |
-| 2 | Donor browsing, needs, basket, and contribution tracking screens |
-| 3 | NGO needs form and delivery receipt/photo workflow |
-| 4 | Supabase schema, seeds, pooled funding mutation, Storage wiring |
-| 5 | Mock checkout, confirmation, manual QA, demo rehearsal |
+## Notes
 
-Agree shared types and status names in the first 15 minutes. Build through minute 105, integrate and deploy by minute 140, then spend the final 40 minutes testing and rehearsing. Detailed checkpoints and acceptance criteria are in [SPEC.md](SPEC.md).
-
-## After the hackathon
-
-Add real authentication and access control, NGO verification, supplier fulfilment integration, a payment gateway such as PayFast or Paystack, and real notifications. These require additional design and are not part of this demo.
+This MVP intentionally does not include a payment gateway, complex donor onboarding, or marketplace bidding. The goal is a secure, minimal product that proves the matching flow works reliably.
