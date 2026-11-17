@@ -1,66 +1,123 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState, type FormEvent } from "react";
-import type { Order } from "@/lib/types";
-import { uploadProof, confirmDelivery } from "@/lib/services";
-import { validateProof, receiptNoteSchema } from "@/lib/validation";
-import { RECEIPT_NOTE_MAX } from "@/lib/constants";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
-import { ErrorMessage } from "@/components/ui/ErrorMessage";
+import { Spinner } from "@/components/ui/Spinner";
+import { Toast } from "@/components/ui/Toast";
+import { RECEIPT_NOTE_MAX } from "@/lib/constants";
+import { validateProofFile } from "@/lib/validation";
+import { uploadProof } from "@/lib/services/storage";
+import { confirmDelivery } from "@/lib/services/orders";
 
-export function ReceiptForm({ order, onDelivered }: { order: Order; onDelivered: () => void }) {
+export function ReceiptForm({ orderId }: { orderId: string }) {
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [phase, setPhase] = useState<"idle" | "uploading" | "saving">("idle");
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
-  const submitting = useRef(false);
-  useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
-  function chooseFile(next: File | null) {
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isComplete, setIsComplete] = useState(false);
+  const previewUrl = useMemo(() => file ? URL.createObjectURL(file) : null, [file]);
+  const inFlight = useRef(false);
+  const router = useRouter();
+
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
+  function chooseFile(nextFile: File | null) {
+    setError("");
     setUploadedPath(null);
-    setFile(next);
-    setError(null);
-    if (!next) { setPreview(null); return; }
-    const valid = validateProof(next);
-    if (!valid.ok) { setPreview(null); setError(valid.error.message); return; }
-    setPreview(URL.createObjectURL(next));
+    if (nextFile) {
+      const validationError = validateProofFile(nextFile);
+      if (validationError) setError(validationError);
+    }
+    setFile(nextFile);
   }
-  async function submit(event: FormEvent) {
-    event.preventDefault();
-    if (submitting.current || order.status !== "awaiting_delivery") return;
-    if (!file) { setError("Choose a non-sensitive demo receipt photo."); return; }
-    const validFile = validateProof(file);
-    const validNote = receiptNoteSchema.safeParse(note);
-    if (!validFile.ok) { setError(validFile.error.message); return; }
-    if (!validNote.success) { setError("Write a receipt note of 1–280 characters after trimming spaces."); return; }
-    submitting.current = true;
-    setError(null);
-    try {
-      let path = uploadedPath;
-      if (!path) {
-        setPhase("uploading");
-        const upload = await uploadProof(order.id, file);
-        if (!upload.ok) { setError(`${upload.error.message} Your form is kept for retry.`); return; }
-        path = upload.data.path;
-        setUploadedPath(path);
+
+  async function submit() {
+    if (inFlight.current) return;
+    setError("");
+    const trimmedNote = note.trim();
+    if (!file) {
+      setError("Choose a receipt photo before confirming delivery.");
+      return;
+    }
+    const fileError = validateProofFile(file);
+    if (fileError) {
+      setError(fileError);
+      return;
+    }
+    if (trimmedNote.length < 1 || trimmedNote.length > RECEIPT_NOTE_MAX) {
+      setError("Enter a trimmed receipt note between 1 and 280 characters.");
+      return;
+    }
+
+    inFlight.current = true;
+    setIsSubmitting(true);
+    let proofPath = uploadedPath;
+    if (!proofPath) {
+      const uploadResult = await uploadProof(orderId, file);
+      if (!uploadResult.ok) {
+        setError(uploadResult.error.message);
+        inFlight.current = false;
+        setIsSubmitting(false);
+        return;
       }
-      setPhase("saving");
-      const receipt = await confirmDelivery({ orderId: order.id, proofPath: path, note: validNote.data });
-      if (!receipt.ok) { setError(`${receipt.error.message} Your uploaded photo and note are kept. Retry confirmation.`); return; }
-      onDelivered();
-    } finally { submitting.current = false; setPhase("idle"); }
+      proofPath = uploadResult.data.path;
+      setUploadedPath(proofPath);
+    }
+
+    const result = await confirmDelivery({ orderId, proofPath, note: trimmedNote });
+    if (!result.ok) {
+      setError(result.error.message);
+      inFlight.current = false;
+      setIsSubmitting(false);
+      return;
+    }
+    setIsComplete(true);
+    setIsSubmitting(false);
+    inFlight.current = false;
+    router.refresh();
   }
-  if (order.status !== "awaiting_delivery") return <p role="status">This receipt has already been confirmed.</p>;
-  const pending = phase !== "idle";
-  return <form className="space-y-5" onSubmit={submit} noValidate><div><h2 className="text-xl font-bold">Confirm simulated receipt</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Use a non-sensitive grocery photo. No personal documents, faces or identifying details.</p></div>
-    <div><label htmlFor="receipt-photo" className="mb-2 block text-sm font-bold">Receipt photo</label><input id="receipt-photo" type="file" accept="image/jpeg,image/png,image/webp" disabled={pending} onChange={(e) => chooseFile(e.target.files?.[0] ?? null)} aria-describedby="photo-help" /><p id="photo-help" className="mt-2 text-xs text-[var(--muted)]">JPEG, PNG or WebP · Up to 5 MB</p></div>
-    {preview && <Image unoptimized src={preview} width={640} height={420} alt="Preview of your selected non-sensitive grocery receipt photo" className="max-h-64 w-full rounded-xl bg-stone-100 object-contain" />}
-    <div><label htmlFor="receipt-note" className="mb-2 block text-sm font-bold">Receipt note</label><textarea id="receipt-note" rows={4} maxLength={RECEIPT_NOTE_MAX} value={note} disabled={pending} onChange={(e) => setNote(e.target.value)} aria-describedby="note-count" placeholder="What arrived, and a short message for the donors." /><p id="note-count" className="mt-2 text-xs text-[var(--muted)]" aria-live="polite">{note.trim().length} / {RECEIPT_NOTE_MAX} characters after trimming</p></div>
-    {error && <ErrorMessage message={error} />}
-    {uploadedPath && <p className="text-xs text-[var(--green)]">Photo uploaded. Retrying will reuse it.</p>}
-    <p role="status" className="text-sm text-[var(--muted)]">{phase === "uploading" ? "Uploading your photo…" : phase === "saving" ? "Saving the receipt…" : "Photo upload completes before delivery status is saved."}</p>
-    <Button type="submit" className="w-full" disabled={pending}>{pending ? "Please wait…" : uploadedPath ? "Retry receipt confirmation (demo)" : "Confirm receipt (demo)"}</Button><p className="text-xs text-[var(--muted)]">Delivery simulated (demo)</p>
-  </form>;
+
+  return (
+    <section className="space-y-4">
+      <div>
+        <label htmlFor="proof-photo" className="font-semibold">Receipt photo (JPEG, PNG or WebP, max 5 MB)</label>
+        <input
+          id="proof-photo"
+          className="mt-2 block min-h-11 w-full rounded-xl border border-stone-300 p-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-800"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={(event) => chooseFile(event.target.files?.[0] ?? null)}
+          disabled={isSubmitting || isComplete}
+        />
+      </div>
+      {previewUrl && file && !validateProofFile(file) && (
+        <Image src={previewUrl} alt="Preview of the selected grocery delivery receipt photo" width={1000} height={750} unoptimized className="max-h-72 w-full rounded-xl object-contain" />
+      )}
+      <div>
+        <label htmlFor="receipt-note" className="font-semibold">Receipt note</label>
+        <textarea
+          id="receipt-note"
+          className="mt-2 min-h-28 w-full rounded-xl border border-stone-300 p-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-800"
+          value={note}
+          maxLength={RECEIPT_NOTE_MAX}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="Describe the simulated receipt"
+          disabled={isSubmitting || isComplete}
+        />
+        <p className="mt-1 text-right text-sm text-stone-600">{note.trim().length} / {RECEIPT_NOTE_MAX} characters</p>
+      </div>
+      {uploadedPath && <p className="text-sm text-emerald-900">Photo uploaded; it will be reused if confirmation needs a retry.</p>}
+      {error && <p className="rounded-xl border border-red-300 bg-red-50 p-3 text-red-950" role="alert">{error}</p>}
+      {isSubmitting && <Spinner label={uploadedPath ? "Saving receipt…" : "Uploading receipt photo…"} />}
+      {isComplete && <Toast>Delivery confirmation saved (demo).</Toast>}
+      <Button type="button" className="w-full sm:w-auto" disabled={isSubmitting || isComplete} onClick={submit}>
+        Delivery simulated (demo) · confirm receipt
+      </Button>
+    </section>
+  );
 }

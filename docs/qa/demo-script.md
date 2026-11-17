@@ -1,15 +1,15 @@
-# Three-minute demo
+# Three-minute Charity Eats rehearsal
 
-Preparation: rerun `supabase/seed.sql`, open `/` in Donor view at 360 px, and keep a non-sensitive grocery photo ≤5 MB ready. All organisations are fictional. Keep the first R50 tracking URL in a separate tab.
+Use the seeded database state (R400 / R550, no order), a fictional note, and a non-sensitive demo receipt photo. This is a simulated payment and delivery walkthrough.
 
-| Time | Presenter action and narration |
+| Time | Demo action and narration |
 | --- | --- |
-| 0:00–0:25 | Open Ubuntu Table. “This fictional kitchen needs two maize packs and one oil pack. Verification is mocked for this demo.” |
-| 0:25–0:45 | Join the fixed R550 basket. Show R400 already funded and R150 remaining. “A small contribution joins the shared pool.” |
-| 0:45–1:10 | Choose R50, continue, press **Pay (demo)**. Show saved confirmation at R450. “This is a simulated payment, with no card details.” Open tracking and retain its URL. |
-| 1:10–1:35 | Return to basket, choose R100 and pay. Show R550 and Awaiting delivery. “Full funding creates one local demo order. Supplier fulfilment is simulated.” |
-| 1:35–2:15 | Toggle NGO, select Ubuntu Table, open the funded order. Select the prepared photo and write “Demo groceries received: two maize bags and one oil bottle.” Confirm receipt. Explain that upload finishes before the saved delivery status. |
-| 2:15–2:45 | Return to Donor view and open the first R50 tracking URL. Show Delivered, photo, note and SAST timestamp. Reload to show persistence. “Every contributor sees the same receipt.” |
-| 2:45–3:00 | “Payments, notifications, supplier fulfilment, verification and delivery are visibly simulated. The demo uses Supabase persistence and Storage; it has no authentication.” |
+| 0:00–0:25 | Open `/`. Point out the fictional Ubuntu Table and “Verification mocked (demo)”. Open its profile and show the two fixed grocery needs and illustrative pack prices. |
+| 0:25–0:50 | Open the basket. Show the fixed two maize bags + one oil bottle, R550 target, R400 funded, and R150 remaining. Choose R50 and continue. |
+| 0:50–1:15 | On checkout, point out “Pay (demo)” and the no-credentials notice. Submit R50. On confirmation, show R450 / R550, “Awaiting funding,” and the tracking link. |
+| 1:15–1:40 | Return to the basket and choose R100. Submit the second “Pay (demo)” contribution. Show the fully funded R550 / R550 confirmation and awaiting-delivery status. |
+| 1:40–2:20 | Switch to NGO view, select Ubuntu Table, open the funded order, and show “Delivery simulated (demo)”. Upload the prepared non-sensitive image, enter the short receipt note, and confirm. |
+| 2:20–2:45 | Return to the first R50 tracking page. Show Delivered, the receipt photo, note and timestamp; mention the R100 contribution links to the same order evidence. |
+| 2:45–3:00 | Close by stating payment, verification, notification, supplier fulfilment and delivery are all simulated. Do not claim real payment or delivery. |
 
-If a service fails, show the honest retry state. Never narrate success before persistence or substitute local fixture success. Reset through SQL Editor before the next rehearsal.
+After rehearsal, run the disposable demo reset so the next run begins at R400 / R550 with no order.

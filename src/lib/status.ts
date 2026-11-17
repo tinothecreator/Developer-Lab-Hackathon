@@ -1,6 +1,10 @@
-import type { Order } from "./types";
+import type { Order, OrderStatus } from "@/lib/types";
 
-export function getStatusLabel(order: Order | null): string {
+export function getDeliveryStatusLabel(order: Order | null): string {
   if (!order) return "Awaiting funding";
-  return order.status === "delivered" ? "Delivered" : "Awaiting delivery";
+  return getOrderStatusLabel(order.status);
+}
+
+export function getOrderStatusLabel(status: OrderStatus): string {
+  return status === "delivered" ? "Delivered" : "Awaiting delivery";
 }

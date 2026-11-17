@@ -1,21 +1,19 @@
-import type { NGO, NeedWithItem, Result } from "../types";
-import { withClient, success, databaseFailure, failure } from "./result";
+import type { NGO, Result } from "@/lib/types";
+import { fail, getSupabaseClient, succeed, unavailable } from "@/lib/services/shared";
 
 export async function getNgos(): Promise<Result<NGO[]>> {
-  return withClient(async (client) => {
-    const { data, error } = await client.from("ngos").select("*").order("id").returns<NGO[]>();
-    return error ? databaseFailure(error) : success(data ?? []);
-  });
+  const supabase = getSupabaseClient();
+  if (!supabase) return unavailable();
+  const { data, error } = await supabase.from("ngos").select("*").order("name");
+  if (error) return fail("UNKNOWN", "NGOs could not be loaded. Please retry.");
+  return succeed(data);
 }
+
 export async function getNgoById(id: string): Promise<Result<NGO>> {
-  return withClient(async (client) => {
-    const { data, error } = await client.from("ngos").select("*").eq("id", id).maybeSingle<NGO>();
-    return error ? databaseFailure(error) : data ? success(data) : failure("UNKNOWN", "This fictional organisation was not found.");
-  });
-}
-export async function getNeedsForNgo(ngoId: string): Promise<Result<NeedWithItem[]>> {
-  return withClient(async (client) => {
-    const { data, error } = await client.from("needs").select("*, catalogue_item:catalogue_items(*)").eq("ngo_id", ngoId).eq("status", "open").order("id").returns<NeedWithItem[]>();
-    return error ? databaseFailure(error) : success(data ?? []);
-  });
+  const supabase = getSupabaseClient();
+  if (!supabase) return unavailable();
+  const { data, error } = await supabase.from("ngos").select("*").eq("id", id).maybeSingle();
+  if (error) return fail("UNKNOWN", "This NGO could not be loaded. Please retry.");
+  if (!data) return fail("UNKNOWN", "This NGO was not found.");
+  return succeed(data);
 }

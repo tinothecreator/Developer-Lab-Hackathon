@@ -1,34 +1,34 @@
-# Charity Eats
+# Charity Eats demo
 
-A mobile-first hackathon demo connecting donors to fictional South African NGO grocery needs. Join Ubuntu Table’s fixed basket at **R400 / R550**, contribute **R50 (demo)** and then **R100 (demo)**, and create exactly one funded order. In NGO view, upload a non-sensitive grocery photo and note to confirm simulated receipt. Both donor contributions then show the same saved evidence.
+Charity Eats is a fictional, mobile-first hackathon demo that pools grocery contributions for NGOs. Payment, verification, supplier fulfilment, notifications and delivery are simulated; no authentication or real integrations are used.
 
-Next.js App Router · strict TypeScript · Tailwind CSS · Supabase Postgres + Storage · Vercel.
+## Golden path
 
-## Run locally
+1. Open `/` and choose the featured Ubuntu Table.
+2. Join its fixed grocery basket: two 25 kg maize meal bags and one 5 L cooking oil bottle. The target is R550; the seeded pool starts at R400.
+3. Record R50 (demo), then R100 (demo), to complete the pool and create one order.
+4. Switch to NGO view, select Ubuntu Table, upload a non-sensitive demo receipt photo and add a short note.
+5. Return to the first contribution's tracking page to see the shared delivery evidence.
 
-1. Run `npm install`.
-2. Privately populate `.env.local` with the two names in `.env.example`: your public Supabase URL and anon key. Never commit the file. No service-role key is required.
-3. Apply the migration and seed using [backend setup](supabase/README.md).
-4. Run `npm run dev` and open http://localhost:3000.
+All organisations, registration numbers, catalogue data and supplier details are fictional. Receipt uploads must be JPEG, PNG or WebP and no larger than 5 MB.
 
-Before pushing, run `npm run lint`, `npm run typecheck`, and `npm run build`. Money tests: `npm exec tsx -- --test src/lib/money.test.ts`.
+## Local setup
 
-## Demo routes
+Install dependencies and run the app:
 
-- `/` → `/ngos/00000000-0000-4000-8000-000000000001` → `/basket` → `/checkout?basketId=00000000-0000-4000-8000-000000000301&amountCents=5000`
-- Successful checkout opens `/confirmation/<contributionId>` and links to `/donations/<contributionId>`.
-- Toggle NGO → `/ngo` → `/ngo/orders/<orderId>` to upload and confirm receipt.
+```powershell
+npm install
+npm run dev
+```
 
-Use the [three-minute script](docs/qa/demo-script.md) and [eight acceptance checks](docs/qa/m1-checklist.md). Deploy using the [Vercel click-by-click guide](docs/deployment.md). One-command developer reset: `psql -v ON_ERROR_STOP=1 -f supabase/seed.sql` with private PostgreSQL connection settings; alternatively rerun the seed in SQL Editor.
+Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `.env.local`; the same public values are needed in Vercel Environment Variables. Do not configure a service-role key. Apply the schema and seed using the instructions in [docs/backend-reset.md](docs/backend-reset.md).
 
-## Boundaries and owners
+Run the configured checks:
 
-Owner 1: scaffold, shell, shared UI, integration and Vercel. Owner 2: donor entry/profile/basket/tracking. Owner 3: NGO workspace/receipt form. Owner 4: shared types, fixtures, services, SQL, Storage and reset. Owner 5: checkout/confirmation, QA and rehearsal. Exact paths are in [AGENTS.md](AGENTS.md); the frozen contract and scope are in [PLAN.md](PLAN.md).
+```powershell
+npm run lint
+npm run typecheck
+npm run build
+```
 
-Pages and components call `src/lib/services`, never Supabase directly. Shared domain types live only in `src/lib/types.ts`. Funding is atomic and idempotent through `contribute_to_basket`; receipt changes use the restricted `confirm_delivery` RPC. Only persisted success opens a success screen.
-
-## What is mocked
-
-Payments, notifications, supplier fulfilment, verification and delivery are visibly labelled **demo**. Names, registration identifiers, prices and grocery needs are fictional. No real payment credentials or notifications are used. There is no authentication: the persisted Donor/NGO selector changes the view, not permissions. Database reads are public and the proof bucket is public for non-sensitive images only. These policies are intended for a disposable demo, not production.
-
-New needs, basket creation, contribution-history lists, need fulfilment, larger-photo views and concurrency stress testing remain Later. No real supplier, payment or verification integrations are implemented. M1 completion does not claim a Vercel deployment until its connection and URL are verified.
+See [docs/qa/acceptance.md](docs/qa/acceptance.md) and [docs/qa/demo-script.md](docs/qa/demo-script.md) for the manual rehearsal.

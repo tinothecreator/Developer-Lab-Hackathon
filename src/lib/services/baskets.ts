@@ -1,23 +1,38 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Basket, BasketView, NGO, Order, Result } from "../types";
-import { withClient, success, databaseFailure, failure } from "./result";
+import type { BasketView, Result } from "@/lib/types";
+import { fail, getSupabaseClient, succeed, unavailable } from "@/lib/services/shared";
 
-export async function loadBasketView(client: SupabaseClient, basket: Basket): Promise<Result<BasketView>> {
-  const [ngo, items, order] = await Promise.all([
-    client.from("ngos").select("*").eq("id", basket.ngo_id).single<NGO>(),
-    client.from("basket_items").select("*, catalogue_item:catalogue_items(*)").eq("basket_id", basket.id).order("id").returns<BasketView["items"]>(),
-    client.from("orders").select("*").eq("basket_id", basket.id).maybeSingle<Order>(),
-  ]);
-  if (ngo.error) return databaseFailure(ngo.error);
-  if (items.error) return databaseFailure(items.error);
-  if (order.error) return databaseFailure(order.error);
-  return success({ basket, ngo: ngo.data, items: items.data ?? [], order: order.data, remaining_cents: basket.target_cents - basket.funded_cents });
-}
 export async function getBasketForNgo(ngoId: string): Promise<Result<BasketView>> {
-  return withClient(async (client) => {
-    const { data, error } = await client.from("baskets").select("*").eq("ngo_id", ngoId).order("created_at", { ascending: false }).limit(1).maybeSingle<Basket>();
-    if (error) return databaseFailure(error);
-    if (!data) return failure("UNKNOWN", "No shared basket is available for this organisation.");
-    return loadBasketView(client, data);
+  const supabase = getSupabaseClient();
+  if (!supabase) return unavailable();
+  const { data: ngo, error: ngoError } = await supabase.from("ngos").select("*").eq("id", ngoId).maybeSingle();
+  if (ngoError) return fail("UNKNOWN", "The NGO could not be loaded. Please retry.");
+  if (!ngo) return fail("UNKNOWN", "This NGO was not found.");
+  const { data: basket, error: basketError } = await supabase.from("baskets").select("*")
+    .eq("ngo_id", ngoId).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (basketError) return fail("UNKNOWN", "The basket could not be loaded. Please retry.");
+  if (!basket) return fail("UNKNOWN", "There is no seeded basket for this NGO.");
+  const { data: basketItems, error: basketItemsError } = await supabase.from("basket_items").select("*").eq("basket_id", basket.id);
+  if (basketItemsError) return fail("UNKNOWN", "Basket contents could not be loaded. Please retry.");
+  const catalogueIds = [...new Set(basketItems.map((item) => item.catalogue_item_id))];
+  const { data: catalogue, error: catalogueError } = catalogueIds.length
+    ? await supabase.from("catalogue_items").select("*").in("id", catalogueIds)
+    : { data: [], error: null };
+  if (catalogueError) return fail("UNKNOWN", "Grocery details could not be loaded. Please retry.");
+  const catalogueById = new Map(catalogue.map((item) => [item.id, item]));
+  const items: BasketView["items"] = [];
+  for (const item of basketItems) {
+    const catalogue_item = catalogueById.get(item.catalogue_item_id);
+    if (!catalogue_item) return fail("UNKNOWN", "A basket grocery detail is missing.");
+    items.push({ ...item, catalogue_item });
+  }
+  const { data: order, error: orderError } = await supabase.from("orders").select("*")
+    .eq("basket_id", basket.id).maybeSingle();
+  if (orderError) return fail("UNKNOWN", "Order status could not be loaded. Please retry.");
+  return succeed({
+    basket,
+    ngo,
+    items,
+    remaining_cents: basket.target_cents - basket.funded_cents,
+    order,
   });
 }

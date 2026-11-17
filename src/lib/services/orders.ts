@@ -1,32 +1,47 @@
-import type { Basket, BasketView, DeliveryInput, Order, Result } from "../types";
-import { receiptNoteSchema } from "../validation";
-import { withClient, success, databaseFailure, failure } from "./result";
-import { loadBasketView } from "./baskets";
+import type { BasketView, Order, Result } from "@/lib/types";
+import { receiptNoteSchema } from "@/lib/validation";
+import { fail, getSupabaseClient, mapServiceError, succeed, unavailable } from "@/lib/services/shared";
+import { getBasketForNgo } from "@/lib/services/baskets";
 
 export async function getFundedOrdersForNgo(ngoId: string): Promise<Result<Order[]>> {
-  return withClient(async (client) => {
-    const { data, error } = await client.from("orders").select("*, baskets!inner(ngo_id)").eq("baskets.ngo_id", ngoId).order("created_at", { ascending: false }).returns<Order[]>();
-    return error ? databaseFailure(error) : success(data ?? []);
-  });
+  const supabase = getSupabaseClient();
+  if (!supabase) return unavailable();
+  const { data: baskets, error: basketError } = await supabase.from("baskets").select("id").eq("ngo_id", ngoId);
+  if (basketError) return fail("UNKNOWN", "Orders could not be loaded. Please retry.");
+  if (!baskets.length) return succeed([]);
+  const { data: orders, error } = await supabase.from("orders").select("*")
+    .in("basket_id", baskets.map((basket) => basket.id)).order("created_at", { ascending: false });
+  if (error) return fail("UNKNOWN", "Orders could not be loaded. Please retry.");
+  return succeed(orders);
 }
+
 export async function getOrderView(orderId: string): Promise<Result<{ order: Order; basket_view: BasketView }>> {
-  return withClient(async (client) => {
-    const order = await client.from("orders").select("*").eq("id", orderId).maybeSingle<Order>();
-    if (order.error) return databaseFailure(order.error);
-    if (!order.data) return failure("UNKNOWN", "This funded order was not found.");
-    const basket = await client.from("baskets").select("*").eq("id", order.data.basket_id).single<Basket>();
-    if (basket.error) return databaseFailure(basket.error);
-    const view = await loadBasketView(client, basket.data);
-    return view.ok ? success({ order: order.data, basket_view: view.data }) : view;
-  });
+  const supabase = getSupabaseClient();
+  if (!supabase) return unavailable();
+  const { data: order, error } = await supabase.from("orders").select("*").eq("id", orderId).maybeSingle();
+  if (error) return fail("UNKNOWN", "The order could not be loaded. Please retry.");
+  if (!order) return fail("UNKNOWN", "This order was not found.");
+  const { data: basket, error: basketError } = await supabase.from("baskets").select("ngo_id").eq("id", order.basket_id).maybeSingle();
+  if (basketError || !basket) return fail("UNKNOWN", "The order's basket could not be loaded.");
+  const basketResult = await getBasketForNgo(basket.ngo_id);
+  if (!basketResult.ok) return basketResult;
+  return succeed({ order, basket_view: { ...basketResult.data, order } });
 }
-export async function confirmDelivery({ orderId, proofPath, note }: DeliveryInput): Promise<Result<Order>> {
-  const parsed = receiptNoteSchema.safeParse(note);
-  if (!parsed.success) return failure("UNKNOWN", "Write a receipt note of 1–280 characters.");
-  return withClient(async (client) => {
-    const { data, error } = await client.rpc("confirm_delivery", { p_order_id: orderId, p_proof_path: proofPath, p_note: parsed.data });
-    if (error) return databaseFailure(error);
-    return data?.id === orderId && data?.status === "delivered" && data.proof_photo_path === proofPath
-      ? success(data as Order) : failure("UNKNOWN", "The receipt response was uncertain. Keep this form and retry to check its saved result.");
+
+export async function confirmDelivery(input: {
+  orderId: string;
+  proofPath: string;
+  note: string;
+}): Promise<Result<Order>> {
+  const note = receiptNoteSchema.safeParse(input.note);
+  if (!note.success) return fail("UNKNOWN", "Enter a receipt note between 1 and 280 characters.");
+  const supabase = getSupabaseClient();
+  if (!supabase) return unavailable();
+  const { data, error } = await supabase.rpc("confirm_delivery", {
+    p_order_id: input.orderId,
+    p_proof_path: input.proofPath,
+    p_note: note.data,
   });
+  if (error) return mapServiceError(error.message);
+  return succeed(data);
 }

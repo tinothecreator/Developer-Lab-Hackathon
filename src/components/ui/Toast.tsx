@@ -1,5 +1,4 @@
-import type { ReactNode } from "react";
-
-export function Toast({ children }: { children: ReactNode }) {
-  return <div role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"><p className="mb-1 font-bold">Notification (demo)</p>{children}</div>;
+export function Toast({ children, tone = "success" }: { children: React.ReactNode; tone?: "success" | "info" }) {
+  const styles = tone === "success" ? "border-emerald-300 bg-emerald-50 text-emerald-950" : "border-sky-300 bg-sky-50 text-sky-950";
+  return <div className={`rounded-xl border p-4 ${styles}`} role="status" aria-live="polite">{children}</div>;
 }

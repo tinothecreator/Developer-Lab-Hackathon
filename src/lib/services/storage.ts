@@ -1,21 +1,28 @@
-import { PROOF_BUCKET } from "../constants";
-import { getSupabase } from "../supabase/client";
-import { validateProof } from "../validation";
-import type { Result } from "../types";
-import { withClient, success, failure } from "./result";
+import { ALLOWED_PROOF_TYPES, PROOF_BUCKET } from "@/lib/constants";
+import { validateProofFile } from "@/lib/validation";
+import type { Result } from "@/lib/types";
+import { fail, getSupabaseClient, mapServiceError, succeed, unavailable } from "@/lib/services/shared";
 
 export async function uploadProof(orderId: string, file: File): Promise<Result<{ path: string }>> {
-  const validation = validateProof(file);
-  if (!validation.ok) return validation;
-  if (!/^[0-9a-f-]{36}$/.test(orderId)) return failure("UPLOAD_FAILED", "Choose an awaiting-delivery order first.");
-  return withClient(async (client) => {
-    const extension = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[file.type];
-    const path = `${orderId}/${crypto.randomUUID()}.${extension}`;
-    const { error } = await client.storage.from(PROOF_BUCKET).upload(path, file, { contentType: file.type, upsert: false });
-    return error ? failure("UPLOAD_FAILED", "Photo upload failed. Your photo and note are kept; please retry.") : success({ path });
+  const validationError = validateProofFile(file);
+  if (validationError) return fail("UPLOAD_FAILED", validationError);
+  const supabase = getSupabaseClient();
+  if (!supabase) return unavailable();
+  const extension = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
+  if (!ALLOWED_PROOF_TYPES.includes(file.type as (typeof ALLOWED_PROOF_TYPES)[number])) {
+    return fail("UPLOAD_FAILED", "Choose a JPEG, PNG or WebP image.");
+  }
+  const path = `${orderId}/${crypto.randomUUID()}.${extension}`;
+  const { error } = await supabase.storage.from(PROOF_BUCKET).upload(path, file, {
+    contentType: file.type,
+    upsert: false,
   });
+  if (error) return mapServiceError(`UPLOAD_FAILED ${error.message}`);
+  return succeed({ path });
 }
+
 export function getProofUrl(path: string): string {
-  try { return getSupabase().storage.from(PROOF_BUCKET).getPublicUrl(path).data.publicUrl; }
-  catch { return ""; }
+  const supabase = getSupabaseClient();
+  if (!supabase) throw new Error("Supabase is not configured. Add the public URL and anon key to .env.local.");
+  return supabase.storage.from(PROOF_BUCKET).getPublicUrl(path).data.publicUrl;
 }
