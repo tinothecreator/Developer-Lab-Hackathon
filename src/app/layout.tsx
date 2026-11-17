@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AppHeader } from "@/components/shell/AppHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -7,5 +8,12 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en-ZA"><body><main>{children}</main></body></html>;
+  return (
+    <html lang="en-ZA">
+      <body>
+        <AppHeader />
+        <main className="mx-auto min-h-[calc(100vh-78px)] max-w-5xl px-4 py-8 sm:px-6">{children}</main>
+      </body>
+    </html>
+  );
 }

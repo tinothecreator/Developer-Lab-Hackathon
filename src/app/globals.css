@@ -1,4 +1,11 @@
 @import "tailwindcss";
 
-body { margin: 0; font-family: Arial, Helvetica, sans-serif; }
+@theme {
+  --color-brand: #166534;
+}
+
 * { box-sizing: border-box; }
+html { min-width: 320px; background: #fafaf9; }
+body { margin: 0; color: #292524; font-family: Arial, Helvetica, sans-serif; }
+button, input, select, textarea { font: inherit; }
+a { color: inherit; }
