@@ -9,6 +9,7 @@ import { ErrorMessage } from "@/components/ui/ErrorMessage";
 import { Spinner } from "@/components/ui/Spinner";
 import { fixtureNgos } from "@/lib/fixtures";
 import { getFundedOrdersForNgo } from "@/lib/services/orders";
+import { getOrderStatusLabel } from "@/lib/status";
 import type { Order } from "@/lib/types";
 
 const NGO_EVENT = "charity-eats-ngo-changed";
@@ -59,7 +60,7 @@ export function NgoOrders() {
         <Card key={order.id} className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="font-bold">Grocery order</p>
-            <Badge className="mt-2">{order.status === "delivered" ? "Delivered" : "Awaiting delivery"}</Badge>
+            <Badge className="mt-2">{getOrderStatusLabel(order.status)}</Badge>
             <p className="mt-2 text-sm text-stone-600">Delivery simulated (demo)</p>
           </div>
           <Link className="font-semibold text-emerald-900 underline underline-offset-4" href={`/ngo/orders/${order.id}`}>Open order</Link>

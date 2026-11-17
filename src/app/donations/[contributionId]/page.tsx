@@ -8,6 +8,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { getProofUrl } from "@/lib/services/storage";
 import { getContributionTracking } from "@/lib/services/contributions";
 import { formatZar } from "@/lib/money";
+import { getDeliveryStatusLabel } from "@/lib/status";
 
 export default async function ContributionTrackingPage({ params }: PageProps<"/donations/[contributionId]">) {
   const { contributionId } = await params;
@@ -15,7 +16,7 @@ export default async function ContributionTrackingPage({ params }: PageProps<"/d
   if (!result.ok && result.error.message.includes("not found")) notFound();
   if (!result.ok) return <ErrorMessage message={result.error.message} />;
   const { contribution, basket_view: view } = result.data;
-  const deliveryStatus = !view.order ? "Awaiting funding" : view.order.status === "delivered" ? "Delivered" : "Awaiting delivery";
+  const deliveryStatus = getDeliveryStatusLabel(view.order);
 
   return (
     <div className="mx-auto max-w-2xl space-y-5">

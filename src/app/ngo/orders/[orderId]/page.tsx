@@ -8,6 +8,7 @@ import { ReceiptForm } from "@/features/ngo/ReceiptForm";
 import { formatZar } from "@/lib/money";
 import { getOrderView } from "@/lib/services/orders";
 import { getProofUrl } from "@/lib/services/storage";
+import { getOrderStatusLabel } from "@/lib/status";
 
 export default async function OrderPage({ params }: PageProps<"/ngo/orders/[orderId]">) {
   const { orderId } = await params;
@@ -26,7 +27,7 @@ export default async function OrderPage({ params }: PageProps<"/ngo/orders/[orde
             <p className="text-sm font-semibold uppercase tracking-wide text-emerald-800">{view.ngo.name}</p>
             <h1 className="mt-2 text-3xl font-bold">Grocery order</h1>
           </div>
-          <Badge>{isAwaitingDelivery ? "Awaiting delivery" : "Delivered"}</Badge>
+          <Badge>{getOrderStatusLabel(order.status)}</Badge>
         </div>
         <p className="text-stone-700">Delivery simulated (demo)</p>
         <ul className="list-inside list-disc divide-y divide-stone-200">

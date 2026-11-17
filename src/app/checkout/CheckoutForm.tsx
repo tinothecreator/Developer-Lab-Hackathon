@@ -49,7 +49,6 @@ export function CheckoutForm({ basketId, ngoId, amountCents, remainingCents: ini
     const checkoutKey = getAttemptKey();
     const result = await submitContribution({ basketId, demoDonorId: DEMO_DONOR_ID, amountCents, checkoutKey });
     if (result.ok) {
-      window.sessionStorage.removeItem(attemptStorageKey);
       router.push(`/confirmation/${result.data.contribution_id}`);
       return;
     }
