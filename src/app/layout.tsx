@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { AppHeader } from "@/components/shell/AppHeader";
 import "./globals.css";
-import { RoleProvider } from "@/components/shell/RoleProvider";
-import { AppHeader } from "@/components/shell/AppHeader";
 
 export const metadata: Metadata = {
   title: "Charity Eats | Shared groceries, shared good",
